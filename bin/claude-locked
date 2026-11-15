@@ -1,0 +1,165 @@
+#!/bin/zsh
+
+set -eu
+setopt NO_UNSET PIPE_FAIL
+
+readonly LOCK_NAME="Claude Network Lock"
+readonly CONFIG_DIR="${CLAUDE_NETWORK_LOCK_CONFIG_DIR:-${HOME}/.config/claude-network-lock}"
+readonly CONFIG_FILE="${CONFIG_DIR}/config"
+
+fail() {
+  print -u2 -- "[${LOCK_NAME}] $*"
+  exit 1
+}
+
+clean_proxy_environment() {
+  unset http_proxy https_proxy all_proxy no_proxy
+  unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY
+}
+
+[[ -r "${CONFIG_FILE}" ]] || fail "缺少配置：${CONFIG_FILE}，请先运行 install.zsh"
+
+config_mode="$(/usr/bin/stat -f '%Lp' "${CONFIG_FILE}")" \
+  || fail "无法读取配置权限"
+(( (8#${config_mode} & 8#022) == 0 )) \
+  || fail "配置不能由 group/other 写入：chmod 600 ${CONFIG_FILE}"
+
+# 配置由安装器生成、仅限当前用户写入；加载后再逐项严格校验。
+source "${CONFIG_FILE}"
+
+: "${CONFIG_VERSION:?缺少 CONFIG_VERSION}"
+: "${PROXY_HOST:?缺少 PROXY_HOST}"
+: "${PROXY_PORT:?缺少 PROXY_PORT}"
+: "${EXPECTED_IP_SHA256:?缺少 EXPECTED_IP_SHA256}"
+: "${PINNED_CLAUDE_BIN:?缺少 PINNED_CLAUDE_BIN}"
+: "${PINNED_IDENTIFIER:?缺少 PINNED_IDENTIFIER}"
+: "${PINNED_TEAM_ID:?缺少 PINNED_TEAM_ID}"
+: "${PINNED_SHA256:?缺少 PINNED_SHA256}"
+
+[[ "${CONFIG_VERSION}" == "1" ]] || fail "不支持的配置版本：${CONFIG_VERSION}"
+[[ "${PROXY_HOST}" == "127.0.0.1" ]] \
+  || fail "公开版目前只允许 PROXY_HOST=127.0.0.1"
+[[ "${PROXY_PORT}" == <-> ]] \
+  || fail "代理端口不是数字：${PROXY_PORT}"
+(( PROXY_PORT >= 1 && PROXY_PORT <= 65535 )) \
+  || fail "代理端口超出范围：${PROXY_PORT}"
+[[ "${EXPECTED_IP_SHA256}" =~ '^[0-9a-f]{64}$' ]] \
+  || fail "出口指纹格式无效"
+[[ "${PINNED_SHA256}" =~ '^[0-9a-f]{64}$' ]] \
+  || fail "Claude SHA-256 格式无效"
+
+readonly PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
+readonly LOCAL_PORTS_FILE="${CONFIG_DIR}/local-ports"
+readonly IP_CHECK_URL_ONE="${IP_CHECK_URL_ONE:-https://api.ipify.org}"
+readonly IP_CHECK_URL_TWO="${IP_CHECK_URL_TWO:-https://ifconfig.me/ip}"
+
+[[ -x "${PINNED_CLAUDE_BIN}" ]] \
+  || fail "固定 Claude 二进制不存在或不可执行：${PINNED_CLAUDE_BIN}"
+
+actual_sha256="$(/usr/bin/shasum -a 256 "${PINNED_CLAUDE_BIN}" | /usr/bin/awk '{print $1}')" \
+  || fail "无法计算 Claude SHA-256"
+[[ "${actual_sha256}" == "${PINNED_SHA256}" ]] \
+  || fail "Claude 文件已变化；请核实更新来源后重新安装网络锁"
+
+signature_info="$(/usr/bin/codesign -dv --verbose=2 "${PINNED_CLAUDE_BIN}" 2>&1)" \
+  || fail "Claude 代码签名校验失败"
+print -r -- "${signature_info}" | /usr/bin/grep -Fqx "Identifier=${PINNED_IDENTIFIER}" \
+  || fail "Claude 签名 Identifier 不符"
+print -r -- "${signature_info}" | /usr/bin/grep -Fqx "TeamIdentifier=${PINNED_TEAM_ID}" \
+  || fail "Claude Team ID 不符"
+
+/usr/bin/nc -z -w 2 "${PROXY_HOST}" "${PROXY_PORT}" 2>/dev/null \
+  || fail "${PROXY_HOST}:${PROXY_PORT} 未监听"
+
+clean_proxy_environment
+actual_ip_one="$(/usr/bin/curl --fail --silent --show-error --max-time 10 \
+  --noproxy "" --proxy "${PROXY_URL}" "${IP_CHECK_URL_ONE}" \
+  | /usr/bin/tr -d '[:space:]')" \
+  || fail "无法通过固定代理完成第一项出口验证"
+actual_ip_two="$(/usr/bin/curl --fail --silent --show-error --max-time 10 \
+  --noproxy "" --proxy "${PROXY_URL}" "${IP_CHECK_URL_TWO}" \
+  | /usr/bin/tr -d '[:space:]')" \
+  || fail "无法通过固定代理完成第二项出口验证"
+[[ -n "${actual_ip_one}" && "${actual_ip_one}" == "${actual_ip_two}" ]] \
+  || fail "两个出口验证服务结果不一致，拒绝启动"
+
+actual_ip_sha256="$(print -rn -- "${actual_ip_one}" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')"
+[[ "${actual_ip_sha256}" == "${EXPECTED_IP_SHA256}" ]] \
+  || fail "当前出口与安装时固定的 IP 指纹不符，拒绝启动"
+
+sandbox_profile="(version 1)
+(allow default)
+(deny process-exec (literal \"/usr/bin/open\"))
+(deny process-exec (literal \"/usr/bin/osascript\"))
+(deny mach-lookup (global-name \"com.apple.lsd.open\"))
+(deny mach-lookup (global-name \"com.apple.lsd.openurl\"))
+(deny network-outbound)
+(allow network-outbound (remote ip \"localhost:${PROXY_PORT}\"))"
+
+[[ -e "${LOCAL_PORTS_FILE}" ]] || : > "${LOCAL_PORTS_FILE}"
+[[ -r "${LOCAL_PORTS_FILE}" ]] || fail "无法读取本机端口白名单：${LOCAL_PORTS_FILE}"
+
+local_port_rules=""
+while IFS= read -r local_port || [[ -n "${local_port}" ]]; do
+  local_port="${local_port%%#*}"
+  local_port="${local_port//[[:space:]]/}"
+  [[ -z "${local_port}" ]] && continue
+  [[ "${local_port}" == <-> ]] || fail "本机端口白名单包含非法值：${local_port}"
+  (( local_port >= 1 && local_port <= 65535 )) \
+    || fail "本机端口超出范围：${local_port}"
+  [[ "${local_port}" != "${PROXY_PORT}" ]] \
+    || fail "固定代理端口无需重复加入 local-ports"
+  local_port_rules+=$'\n'"(allow network-outbound (remote ip \"localhost:${local_port}\"))"
+done < "${LOCAL_PORTS_FILE}"
+readonly SANDBOX_PROFILE="${sandbox_profile}${local_port_rules}"
+
+if [[ "${1:-}" == "--lock-self-test" ]]; then
+  /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+    /usr/bin/nc -z -w 2 "${PROXY_HOST}" "${PROXY_PORT}" \
+    || fail "Seatbelt 未放行固定代理端口"
+
+  if /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+    /usr/bin/nc -z -w 2 1.1.1.1 443; then
+    fail "Seatbelt 错误放行了公网直连"
+  fi
+
+  if /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+    /bin/zsh -c '/usr/bin/nc -z -w 2 1.1.1.1 443'; then
+    fail "Seatbelt 子进程错误放行了公网直连"
+  fi
+
+  if /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+    /usr/bin/open -Ra Safari; then
+    fail "Seatbelt 错误允许调用 open/LaunchServices"
+  fi
+
+  if /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+    /usr/bin/osascript -e 'return 1'; then
+    fail "Seatbelt 错误允许调用 osascript"
+  fi
+
+  print -- "[${LOCK_NAME}] 自检通过：Claude 身份、文件、固定出口和 Seatbelt 均符合预期"
+  exit 0
+fi
+
+if [[ "${actual_ip_one}" == *.* ]]; then
+  masked_exit_ip="$(print -rn -- "${actual_ip_one}" | /usr/bin/awk -F. '{print $1 "." $2 ".x.x"}')"
+else
+  masked_exit_ip="$(print -rn -- "${actual_ip_one}" | /usr/bin/awk -F: '{print $1 ":" $2 "::xxxx"}')"
+fi
+print -- "[${LOCK_NAME}] 出口验证通过：${PROXY_HOST}:${PROXY_PORT} -> ${masked_exit_ip}，正在安全启动"
+
+exec /usr/bin/env \
+  http_proxy="${PROXY_URL}" \
+  https_proxy="${PROXY_URL}" \
+  all_proxy="${PROXY_URL}" \
+  HTTP_PROXY="${PROXY_URL}" \
+  HTTPS_PROXY="${PROXY_URL}" \
+  ALL_PROXY="${PROXY_URL}" \
+  no_proxy="localhost,127.0.0.1,::1" \
+  NO_PROXY="localhost,127.0.0.1,::1" \
+  DISABLE_AUTOUPDATER=1 \
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+  DISABLE_TELEMETRY=1 \
+  /usr/bin/sandbox-exec -p "${SANDBOX_PROFILE}" \
+  "${PINNED_CLAUDE_BIN}" "$@"

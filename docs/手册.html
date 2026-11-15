@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Network Lock -- 使用手册</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   CSS CUSTOM PROPERTIES — Anthropic/Claude Warm Palette
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-page: #faf9f7;
+  --bg-cover: linear-gradient(165deg, #1a1410 0%, #2d2a26 40%, #3d3530 100%);
+  --bg-sidebar: #f0ebe4;
+  --bg-code: #f5f0eb;
+  --text-primary: #1a1410;
+  --text-secondary: #5c5650;
+  --text-light: #8a837c;
+  --text-cover: #f5f0eb;
+  --accent: #c4704b;
+  --accent-light: #d4845e;
+  --accent-bg: rgba(196, 112, 75, 0.08);
+  --accent-border: rgba(196, 112, 75, 0.25);
+  --border-light: #e5e0d8;
+  --border-table: #d5cfc6;
+  --heading-font: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, "Songti SC", serif;
+  --body-font: -apple-system, system-ui, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --mono-font: "SF Mono", "Fira Code", Menlo, "Courier New", monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--body-font);
+  color: var(--text-primary);
+  background: var(--bg-page);
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT STYLES — A4, proper margins, running headers/footers
+   ═══════════════════════════════════════════════════════════ */
+@page {
+  size: A4;
+  margin: 25mm 20mm;
+}
+
+@page :first {
+  margin: 0;
+}
+
+@media print {
+  html { font-size: 10.5pt; }
+  body { background: white; }
+
+  .cover-page {
+    page-break-after: always;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  .chapter {
+    page-break-before: always;
+  }
+
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  .toc-page {
+    page-break-before: always;
+    page-break-after: always;
+  }
+
+  .executive-summary {
+    page-break-before: always;
+    page-break-after: always;
+  }
+
+  pre, table, .callout, .diagram-container {
+    page-break-inside: avoid;
+  }
+
+  .print-hide {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DOCUMENT CONTAINER
+   ═══════════════════════════════════════════════════════════ */
+.document {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+@media screen and (max-width: 820px) {
+  .document { padding: 0 24px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COVER PAGE
+   ═══════════════════════════════════════════════════════════ */
+.cover-page {
+  background: var(--bg-cover);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cover-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(196, 112, 75, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(196, 112, 75, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.cover-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 600px;
+}
+
+/* Shield geometric graphic */
+.cover-shield {
+  width: 120px;
+  height: 140px;
+  margin: 0 auto 48px;
+  position: relative;
+}
+
+.cover-shield svg {
+  width: 100%;
+  height: 100%;
+}
+
+.cover-title {
+  font-family: var(--heading-font);
+  font-size: 42px;
+  font-weight: 400;
+  color: var(--text-cover);
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.cover-subtitle {
+  font-family: var(--body-font);
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--accent-light);
+  letter-spacing: 1px;
+  margin-bottom: 48px;
+  line-height: 1.6;
+}
+
+.cover-meta {
+  font-size: 13px;
+  color: rgba(245, 240, 235, 0.5);
+  letter-spacing: 0.5px;
+  line-height: 2;
+}
+
+.cover-meta .version-line {
+  font-size: 14px;
+  color: rgba(245, 240, 235, 0.65);
+  margin-bottom: 24px;
+}
+
+.cover-divider {
+  width: 60px;
+  height: 1px;
+  background: var(--accent);
+  margin: 32px auto;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RUNNING HEADER (screen only)
+   ═══════════════════════════════════════════════════════════ */
+.running-header {
+  position: sticky;
+  top: 0;
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--border-light);
+  padding: 12px 0;
+  z-index: 100;
+  font-size: 12px;
+  color: var(--text-light);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.running-header-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 40px;
+  display: flex;
+  justify-content: space-between;
+}
+
+@media print {
+  .running-header { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EXECUTIVE SUMMARY
+   ═══════════════════════════════════════════════════════════ */
+.executive-summary {
+  padding: 64px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.executive-summary .summary-label {
+  font-family: var(--heading-font);
+  font-size: 14px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+.executive-summary .summary-text {
+  font-size: 17px;
+  line-height: 2;
+  color: var(--text-secondary);
+  max-width: 680px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TABLE OF CONTENTS
+   ═══════════════════════════════════════════════════════════ */
+.toc-page {
+  padding: 64px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.toc-title {
+  font-family: var(--heading-font);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: 32px;
+}
+
+.toc-list {
+  list-style: none;
+}
+
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  padding: 6px 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.toc-item.toc-chapter {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 12px;
+  font-size: 16px;
+}
+
+.toc-item.toc-section {
+  padding-left: 24px;
+  font-weight: 400;
+}
+
+.toc-item.toc-appendix {
+  margin-top: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toc-number {
+  min-width: 56px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.toc-text {
+  flex: 1;
+}
+
+.toc-dots {
+  flex: 1;
+  border-bottom: 1px dotted var(--border-light);
+  margin: 0 8px;
+  min-width: 40px;
+}
+
+.toc-page-num {
+  flex-shrink: 0;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHAPTER & SECTION HEADINGS
+   ═══════════════════════════════════════════════════════════ */
+.chapter {
+  padding: 64px 0 0;
+}
+
+.chapter-number {
+  font-family: var(--heading-font);
+  font-size: 13px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.chapter-title {
+  font-family: var(--heading-font);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.section-title {
+  font-family: var(--heading-font);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 40px 0 16px;
+  line-height: 1.4;
+}
+
+.subsection-title {
+  font-family: var(--body-font);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 28px 0 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROSE PARAGRAPHS
+   ═══════════════════════════════════════════════════════════ */
+.prose {
+  max-width: 680px;
+}
+
+.prose p {
+  margin-bottom: 18px;
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CALLOUT / SIDEBAR BOXES
+   ═══════════════════════════════════════════════════════════ */
+.callout {
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 24px 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+.callout strong {
+  color: var(--text-primary);
+}
+
+.callout-label {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PULL QUOTES
+   ═══════════════════════════════════════════════════════════ */
+.pull-quote {
+  font-family: var(--heading-font);
+  font-size: 20px;
+  font-style: italic;
+  color: var(--accent);
+  line-height: 1.6;
+  padding: 24px 0 24px 28px;
+  border-left: 3px solid var(--accent-border);
+  margin: 32px 0;
+  max-width: 600px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CODE BLOCKS
+   ═══════════════════════════════════════════════════════════ */
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border-light);
+  padding: 16px 20px;
+  margin: 20px 0;
+  overflow-x: auto;
+  font-family: var(--mono-font);
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  border-radius: 4px;
+}
+
+code {
+  font-family: var(--mono-font);
+  font-size: 0.9em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TABLES
+   ═══════════════════════════════════════════════════════════ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+thead th {
+  background: var(--bg-sidebar);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border-table);
+  color: var(--text-primary);
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+tbody tr:last-child td {
+  border-bottom: 2px solid var(--border-table);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DIAGRAMS
+   ═══════════════════════════════════════════════════════════ */
+.diagram-container {
+  margin: 32px 0;
+  padding: 32px 24px;
+  background: #fdfcfa;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.diagram-caption {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 16px;
+  font-style: italic;
+}
+
+.diagram-box {
+  display: inline-block;
+  border: 1.5px solid var(--text-secondary);
+  padding: 10px 20px;
+  margin: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: white;
+  border-radius: 3px;
+  position: relative;
+}
+
+.diagram-box.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.diagram-box.muted {
+  border-color: var(--border-table);
+  color: var(--text-light);
+  background: var(--bg-sidebar);
+}
+
+.diagram-arrow {
+  display: block;
+  font-size: 18px;
+  color: var(--text-light);
+  margin: 4px 0;
+  line-height: 1;
+}
+
+.diagram-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+.diagram-connector {
+  width: 40px;
+  height: 1.5px;
+  background: var(--text-light);
+  position: relative;
+}
+
+.diagram-connector::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--text-light);
+  border-top: 4.5px solid transparent;
+  border-bottom: 4.5px solid transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FLOW CHART (vertical)
+   ═══════════════════════════════════════════════════════════ */
+.flow-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.flow-step {
+  border: 1.5px solid var(--text-secondary);
+  padding: 10px 24px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: white;
+  border-radius: 3px;
+  min-width: 260px;
+  text-align: center;
+}
+
+.flow-step.decision {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  transform: rotate(0deg);
+  border-radius: 3px;
+}
+
+.flow-arrow-down {
+  width: 1.5px;
+  height: 20px;
+  background: var(--text-light);
+  position: relative;
+}
+
+.flow-arrow-down::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: -4px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid var(--text-light);
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+}
+
+.flow-branch {
+  display: flex;
+  gap: 60px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.flow-label {
+  font-size: 11px;
+  color: var(--text-light);
+  margin: 4px 0;
+}
+
+.flow-result-pass {
+  border: 1.5px solid #5a8a5a;
+  color: #5a8a5a;
+  background: rgba(90, 138, 90, 0.06);
+  padding: 8px 20px;
+  font-size: 13px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.flow-result-fail {
+  border: 1.5px solid #a05050;
+  color: #a05050;
+  background: rgba(160, 80, 80, 0.06);
+  padding: 8px 20px;
+  font-size: 13px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NUMBERED STEPS
+   ═══════════════════════════════════════════════════════════ */
+.step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content p {
+  margin-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Q&A
+   ═══════════════════════════════════════════════════════════ */
+.qa-item {
+  margin-bottom: 28px;
+}
+
+.qa-q {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.qa-a {
+  color: var(--text-secondary);
+  padding-left: 20px;
+  border-left: 2px solid var(--border-light);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TROUBLESHOOTING TABLE
+   ═══════════════════════════════════════════════════════════ */
+.trouble-table td:first-child {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOOTNOTES
+   ═══════════════════════════════════════════════════════════ */
+.footnotes {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.7;
+}
+
+.footnote-ref {
+  font-size: 10px;
+  vertical-align: super;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGE FOOTER (screen)
+   ═══════════════════════════════════════════════════════════ */
+.page-footer {
+  text-align: center;
+  padding: 48px 0 32px;
+  font-size: 12px;
+  color: var(--text-light);
+  border-top: 1px solid var(--border-light);
+  margin-top: 64px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITY
+   ═══════════════════════════════════════════════════════════ */
+.mt-0 { margin-top: 0; }
+.mt-sm { margin-top: 12px; }
+.mt-md { margin-top: 24px; }
+.mt-lg { margin-top: 40px; }
+.mb-0 { margin-bottom: 0; }
+.mb-sm { margin-bottom: 12px; }
+.mb-md { margin-bottom: 24px; }
+.text-small { font-size: 13px; }
+.text-muted { color: var(--text-light); }
+.text-accent { color: var(--accent); }
+
+/* 简明版补充样式 */
+.prose ul, .prose ol { padding-left: 1.6em; margin: 0.4em 0 1.1em; }
+.prose li { margin: 0.35em 0; line-height: 1.8; }
+.toc-text a { color: inherit; text-decoration: none; }
+.toc-text a:hover { text-decoration: underline; }
+</style>
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COVER PAGE
+     ═══════════════════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div class="cover-content">
+    <div class="cover-shield">
+      <svg viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Shield outline -->
+        <path d="M60 8 L108 30 L108 75 Q108 110 60 132 Q12 110 12 75 L12 30 Z"
+              stroke="rgba(245,240,235,0.3)" stroke-width="1.5" fill="none"/>
+        <!-- Inner shield -->
+        <path d="M60 20 L98 38 L98 72 Q98 102 60 120 Q22 102 22 72 L22 38 Z"
+              stroke="rgba(196,112,75,0.5)" stroke-width="1" fill="none"/>
+        <!-- Lock body -->
+        <rect x="44" y="68" width="32" height="24" rx="2"
+              stroke="rgba(245,240,235,0.5)" stroke-width="1.5" fill="none"/>
+        <!-- Lock shackle -->
+        <path d="M50 68 L50 56 Q50 46 60 46 Q70 46 70 56 L70 68"
+              stroke="rgba(245,240,235,0.5)" stroke-width="1.5" fill="none"/>
+        <!-- Keyhole -->
+        <circle cx="60" cy="78" r="3" stroke="rgba(196,112,75,0.6)" stroke-width="1" fill="none"/>
+        <line x1="60" y1="81" x2="60" y2="86" stroke="rgba(196,112,75,0.6)" stroke-width="1"/>
+        <!-- Network nodes -->
+        <circle cx="32" cy="52" r="2" fill="rgba(245,240,235,0.25)"/>
+        <circle cx="88" cy="52" r="2" fill="rgba(245,240,235,0.25)"/>
+        <circle cx="40" cy="38" r="1.5" fill="rgba(245,240,235,0.2)"/>
+        <circle cx="80" cy="38" r="1.5" fill="rgba(245,240,235,0.2)"/>
+        <line x1="32" y1="52" x2="44" y2="68" stroke="rgba(245,240,235,0.12)" stroke-width="0.75"/>
+        <line x1="88" y1="52" x2="76" y2="68" stroke="rgba(245,240,235,0.12)" stroke-width="0.75"/>
+      </svg>
+    </div>
+
+    <h1 class="cover-title">Claude Network Lock</h1>
+    <p class="cover-subtitle">使用手册（简明版）</p>
+
+    <div class="cover-divider"></div>
+
+    <div class="cover-meta">
+      <div class="version-line">v1.1&emsp;|&emsp;2026 年 11 月</div>
+      <div>让 Claude Code 每次都从同一个网络出口上网</div>
+      <div>适用平台：macOS&emsp;|&emsp;许可证：MIT</div>
+    </div>
+  </div>
+</div>
+
+<div class="running-header print-hide">
+  <div class="running-header-inner">
+    <span>Claude Network Lock -- 使用手册</span>
+    <span>v1.1 / 2026-11</span>
+  </div>
+</div>
+
+<div class="document">
+
+<div class="executive-summary" id="summary">
+  <div class="summary-label">为什么需要这个工具</div>
+  <div class="summary-text prose">
+    <p>
+      通过了 KYC（身份验证）并不意味着你的 Claude 账号就能高枕无忧。Claude 会持续根据你的出口 IP、本机行为等信号进行风控检测——如果你的 IP 频繁变动、前后不一致，即使账号本身没有违规，也可能触发封禁。
+    </p>
+    <p>
+      <strong>关键建议：所有 Claude 流量都应走一个干净的、固定的家庭 ISP 宽带 IP。</strong>机房 IP、共享 IP、数据中心 IP 这类"不干净"的出口，本身就是风控的高危信号。一旦环境不干净，再怎么固定也挡不住封号。固定一个干净的家庭宽带 IP，才是最根本的防护。
+    </p>
+    <p>
+      Claude Network Lock 就是配合这个思路的工具：它像一个"门卫"，每次启动前先确认网络出口和上次一样，才放 Claude Code 通行；启动之后，也只允许它走你指定的那一条路上网。出口一旦不对，它宁可不启动，也不会让 Claude Code 换条路偷偷连网。
+    </p>
+  </div>
+</div>
+
+<div class="toc-page" id="toc">
+  <h2 class="toc-title">目录</h2>
+  <ul class="toc-list">
+    <li class="toc-item toc-chapter"><span class="toc-number">一</span><span class="toc-text"><a href="#ch1">它能帮你做什么</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">二</span><span class="toc-text"><a href="#ch2">它是怎么工作的</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">三</span><span class="toc-text"><a href="#ch3">安装前的准备</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">四</span><span class="toc-text"><a href="#ch4">首次使用前：清理旧的本机痕迹</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">五</span><span class="toc-text"><a href="#ch5">三步完成安装</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">六</span><span class="toc-text"><a href="#ch6">日常使用</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">七</span><span class="toc-text"><a href="#ch7">遇到问题怎么办</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">八</span><span class="toc-text"><a href="#ch8">常见问题</a></span></li>
+    <li class="toc-item toc-chapter"><span class="toc-number">九</span><span class="toc-text"><a href="#ch9">它做不到的事与免责声明</a></span></li>
+  </ul>
+</div>
+
+<!-- 一 -->
+<div class="chapter" id="ch1">
+  <div class="chapter-number">第一章</div>
+  <h2 class="chapter-title">它能帮你做什么</h2>
+  <div class="prose">
+    <p>
+      很多人上网时，公网 IP（也就是别人看到你"从哪里来"的地址）并不是固定的：网络重连、代理工具自动切换、运营商重新分配地址，都可能让它悄悄变掉。对于需要长时间稳定连接的在线服务来说，出口忽东忽西，看起来就不太正常。
+    </p>
+    <p>本工具解决的就是这个问题，它会：</p>
+    <ul>
+      <li>每次启动前，确认 Claude Code 是官方原版、没有被替换；</li>
+      <li>确认网络出口和你安装时记录的一致，不一致就拒绝启动；</li>
+      <li>启动后，把 Claude Code 及其打开的所有程序"关"在一个只能走指定端口的环境里，防止它绕路直连；</li>
+      <li>不让 Claude Code 自动打开浏览器，避免浏览器走了别的网络。</li>
+    </ul>
+    <p>它不会修改 Claude Code 本身，用到的全是 macOS 自带的工具。</p>
+  </div>
+</div>
+
+<!-- 二 -->
+<div class="chapter" id="ch2">
+  <div class="chapter-number">第二章</div>
+  <h2 class="chapter-title">它是怎么工作的</h2>
+  <div class="prose">
+    <p>可以把它想成三道关：</p>
+  </div>
+
+  <div class="diagram-container">
+    <div class="flow-chart">
+      <div class="diagram-box accent" style="min-width: 300px;">第一关：启动前检查</div>
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">身份、端口、出口都没问题</div>
+      <div class="flow-arrow-down"></div>
+      <div class="diagram-box" style="min-width: 300px;">第二关：Claude Code 在"隔离环境"中运行</div>
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">只能连本机指定端口</div>
+      <div class="flow-arrow-down"></div>
+      <div class="diagram-box" style="min-width: 300px;">第三关：你自己的代理工具</div>
+      <div class="flow-arrow-down"></div>
+      <div class="flow-label">固定出口，失效时直接断开</div>
+      <div class="flow-arrow-down"></div>
+      <div class="diagram-box muted" style="min-width: 300px;">固定的公网出口</div>
+    </div>
+    <div class="diagram-caption">图 1&emsp;三道关示意</div>
+  </div>
+
+  <div class="prose">
+    <p><strong>第一关：启动前检查。</strong>每次运行 <code>claude-locked</code>，它都会依次确认：</p>
+    <ol>
+      <li>Claude Code 文件没被改过，签名是官方的；</li>
+      <li>你指定的本地代理端口正在工作；</li>
+      <li>用两个不同的网站查询出口 IP，结果一致；</li>
+      <li>这个 IP 和安装时记录的一样（配置里只存 IP 的"指纹"，不存 IP 本身）。</li>
+    </ol>
+    <p>任何一项不通过，就直接停下并告诉你原因。</p>
+    <p><strong>第二关：隔离运行。</strong>借助 macOS 自带的沙盒功能，Claude Code 启动后只能连接本机的那一个代理端口，连它运行的命令、脚本也一样受限。想直接连外网？连不上。</p>
+    <p><strong>第三关：你的代理工具。</strong>这一关由你自己的代理工具负责：那个专用端口要始终对应同一个出口，出问题时直接断开，而不是自动换一个。</p>
+  </div>
+</div>
+
+<!-- 三 -->
+<div class="chapter" id="ch3">
+  <div class="chapter-number">第三章</div>
+  <h2 class="chapter-title">安装前的准备</h2>
+  <table>
+    <thead><tr><th>需要什么</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>一台 Mac</td><td>系统需带有 <code>sandbox-exec</code>（目前的 macOS 都有）</td></tr>
+      <tr><td>官方 Claude Code</td><td>已经安装好，能正常使用</td></tr>
+      <tr><td>你自己的代理工具</td><td>任意一款即可，需支持 HTTP 端口，并符合所在地法律法规</td></tr>
+      <tr><td>一个固定的出口</td><td>稳定、合规、由你自己控制</td></tr>
+    </tbody>
+  </table>
+
+  <div class="prose">
+    <p>你的代理工具需要准备一个<strong>专门给 Claude Code 用的端口</strong>（下文以 <code>7899</code> 为例），并满足四点：</p>
+    <ol>
+      <li>只在本机监听（<code>127.0.0.1</code>），不对局域网开放；</li>
+      <li>始终走同一个出口，不跟着你平时的切换而变化；</li>
+      <li>没有"自动选择""失败后改走其他线路""直连"之类的设置；</li>
+      <li>出口不可用时直接连不上，而不是换一条路。</li>
+    </ol>
+    <p>具体怎么设置，请参考你所用工具的官方说明，本手册不针对任何特定软件。</p>
+    <p>准备好后，在终端里运行下面两条命令，两次显示的 IP 应该完全一样：</p>
+  </div>
+<pre><code>curl --proxy http://127.0.0.1:7899 https://api.ipify.org
+curl --proxy http://127.0.0.1:7899 https://ifconfig.me/ip</code></pre>
+</div>
+
+<!-- 四 -->
+<div class="chapter" id="ch4">
+  <div class="chapter-number">第四章</div>
+  <h2 class="chapter-title">首次使用前：清理旧的本机痕迹</h2>
+  <div class="prose">
+    <p>
+      如果你之前已经用过 Claude Code，电脑上会留下登录凭据、会话记录、设备标识等本地数据。这些数据不会因为安装了网络锁就自动消失。为了让网络锁从一个干净的起点开始工作，建议在首次安装前做一次清理。
+    </p>
+    <p><strong>如果你是全新安装 Claude Code、从未使用过，可以跳过本章。</strong></p>
+  </div>
+
+  <h3 class="section-title">哪些东西需要清理</h3>
+  <div class="prose">
+    <p>Claude Code 在本机存放的数据主要包括：</p>
+    <ul>
+      <li><strong>登录凭据</strong>：macOS 钥匙串里的 <code>Claude Code-credentials</code>，以及 <code>~/.claude.json</code> 中的 OAuth 账号信息；</li>
+      <li><strong>设备标识</strong>：<code>~/.claude.json</code> 中的 <code>machineID</code>、<code>userID</code>、<code>anonymousId</code> 等字段——其中 <code>userID</code> 会作为遥测的设备 ID 上报；</li>
+      <li><strong>会话历史</strong>：<code>~/.claude/projects/</code>（包含每个项目的对话记录，带有 session ID 和账号标识）、<code>~/.claude/history.jsonl</code>、<code>~/.claude/file-history/</code>；</li>
+      <li><strong>遥测数据</strong>：<code>~/.claude/telemetry/</code>，每条事件都包含 session、设备和账号标识；</li>
+      <li><strong>内部备份</strong>：<code>~/.claude/backups/</code> 中保存了多份旧 <code>.claude.json</code>，包含相同的身份字段；</li>
+      <li><strong>缓存和运行态</strong>：<code>~/.claude/cache/</code>、<code>~/Library/Caches/claude-cli-nodejs/</code> 等。</li>
+    </ul>
+    <p>只轮换一个 <code>machineID</code> 是不够的——上面这些地方都携带关联信息。</p>
+  </div>
+
+  <h3 class="section-title">清理步骤</h3>
+  <div class="prose">
+    <p>清理前请先退出所有 Claude Code 进程。</p>
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <p><strong>备份</strong>——把现有数据完整复制一份，以防万一</p>
+<pre><code>backup_dir=~/claude-cleanup-backup/$(date +%Y%m%d-%H%M%S)
+mkdir -p "$backup_dir"
+cp -a ~/.claude "$backup_dir/dot-claude"
+cp -p ~/.claude.json "$backup_dir/dot-claude.json" 2>/dev/null
+chmod -R 700 "$backup_dir"</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <p><strong>保留你需要的配置</strong>——把设置和插件单独拷出来</p>
+<pre><code>keep_dir="$backup_dir/keep"
+mkdir -p "$keep_dir/plugins"
+cp -p ~/.claude/settings.json "$keep_dir/" 2>/dev/null
+cp -p ~/.claude/settings.local.json "$keep_dir/" 2>/dev/null
+cp -a ~/.claude/skills "$keep_dir/skills" 2>/dev/null
+for f in config.json installed_plugins.json known_marketplaces.json blocklist.json; do
+  cp -p ~/.claude/plugins/$f "$keep_dir/plugins/" 2>/dev/null
+done</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <p><strong>删除旧身份和历史</strong></p>
+<pre><code># 移除旧的身份文件
+rm -f ~/.claude.json
+
+# 移除会话历史、遥测、缓存和内部备份
+rm -rf ~/.claude/projects ~/.claude/history.jsonl ~/.claude/file-history
+rm -rf ~/.claude/telemetry ~/.claude/cache ~/.claude/stats-cache.json
+rm -rf ~/.claude/backups ~/.claude/daemon.log
+rm -rf ~/.claude/jobs ~/.claude/sessions ~/.claude/session-env
+rm -rf ~/Library/Caches/claude-cli-nodejs</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <p><strong>删除钥匙串里的旧登录</strong></p>
+<pre><code>security delete-generic-password -s "Claude Code-credentials" 2>/dev/null</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <p><strong>把保留的配置放回去</strong></p>
+<pre><code>cp -p "$keep_dir/settings.json" ~/.claude/ 2>/dev/null
+cp -p "$keep_dir/settings.local.json" ~/.claude/ 2>/dev/null
+cp -a "$keep_dir/skills" ~/.claude/skills 2>/dev/null
+mkdir -p ~/.claude/plugins
+for f in config.json installed_plugins.json known_marketplaces.json blocklist.json; do
+  cp -p "$keep_dir/plugins/$f" ~/.claude/plugins/ 2>/dev/null
+done</code></pre>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">清理范围说明</div>
+    本章只处理 Claude Code CLI 的本地数据。Claude Desktop（桌面版）、项目里的 <code>.claude/</code> 目录、以及服务端已有的记录，均不受影响。清理本地痕迹不能删除 Anthropic 服务端的数据，也不能保证账号不被风控。
+  </div>
+
+  <div class="prose">
+    <p>清理完成后，下次启动 Claude Code 时它会重新生成本地身份文件，届时再用网络锁登录即可。</p>
+  </div>
+</div>
+
+<!-- 九 -->
+<div class="chapter" id="ch9">
+  <div class="chapter-number">第五章</div>
+  <h2 class="chapter-title">三步完成安装</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <p><strong>下载本项目，在终端进入项目文件夹，运行安装器</strong></p>
+<pre><code>chmod +x scripts/install.zsh
+./scripts/install.zsh --proxy-port 7899</code></pre>
+      <p>安装器会显示检测到的出口（部分打码）并询问是否确认，输入 <code>y</code> 回车即可。</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <p><strong>让终端能找到新命令</strong>（只需做一次）</p>
+<pre><code>echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.zshrc
+source ~/.zshrc</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <p><strong>运行自检</strong></p>
+<pre><code>claude-locked --lock-self-test</code></pre>
+      <p>看到"自检通过"就说明一切正常。自检会实际尝试直连外网、打开浏览器等操作，确认它们都被拦住了。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 九 -->
+<div class="chapter" id="ch9">
+  <div class="chapter-number">第六章</div>
+  <h2 class="chapter-title">日常使用</h2>
+  <div class="prose">
+    <p><strong>启动：</strong>先打开你的代理工具，然后把平时输入的 <code>claude</code> 换成：</p>
+  </div>
+<pre><code>claude-locked</code></pre>
+
+  <div class="prose">
+    <p><strong>登录账号：</strong>运行 <code>claude-locked auth login</code>。因为工具不允许自动打开浏览器，请手动复制终端里显示的链接，在<strong>同样走这个固定出口</strong>的浏览器里打开。浏览器不受本工具管控，需要你自己确认。</p>
+    <p><strong>Claude Code 更新之后：</strong>文件变了，工具会按设计拒绝启动。确认更新来自官方后，重新运行一次安装器和自检即可：</p>
+  </div>
+<pre><code>./scripts/install.zsh --proxy-port 7899
+claude-locked --lock-self-test</code></pre>
+
+  <div class="prose">
+    <p><strong>需要访问本机开发服务（例如 3000 端口）：</strong>在 <code>~/.config/claude-network-lock/local-ports</code> 里每行写一个端口号，改完重新自检。</p>
+  </div>
+  <div class="callout">
+    <div class="callout-label">注意</div>
+    不要把任何代理或转发服务的端口加进这个列表，否则 Claude Code 就可能借它绕过固定出口。
+  </div>
+
+  <div class="prose">
+    <p><strong>卸载：</strong></p>
+  </div>
+<pre><code>./scripts/uninstall.zsh                  # 只删除启动命令，保留配置
+./scripts/uninstall.zsh --purge-config   # 连配置一起删除</code></pre>
+</div>
+
+<!-- 九 -->
+<div class="chapter" id="ch9">
+  <div class="chapter-number">第七章</div>
+  <h2 class="chapter-title">遇到问题怎么办</h2>
+  <table class="trouble-table">
+    <thead><tr><th style="width:30%">提示信息</th><th style="width:30%">原因</th><th style="width:40%">怎么办</th></tr></thead>
+    <tbody>
+      <tr><td>缺少配置</td><td>还没安装，或配置被删了</td><td>运行安装器</td></tr>
+      <tr><td>端口未监听</td><td>代理工具没开，或端口没设好</td><td>打开代理工具，确认专用端口已启用</td></tr>
+      <tr><td>出口验证失败</td><td>代理连不上外网，或查询网站暂时不可用</td><td>检查代理工具能否正常上网，稍后重试</td></tr>
+      <tr><td>两个出口查询结果不一致</td><td>端口没有固定在一个出口上</td><td>检查代理工具里是否开了自动切换</td></tr>
+      <tr><td>出口与安装时不符</td><td>出口 IP 变了</td><td>先查原因；确认新出口没问题后重新安装</td></tr>
+      <tr><td>Claude 文件已变化</td><td>Claude Code 更新了</td><td>确认来自官方后重新安装</td></tr>
+      <tr><td>配置不能由 group/other 写入</td><td>配置文件权限太宽</td><td>运行 <code>chmod 600 ~/.config/claude-network-lock/config</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 九 -->
+<div class="chapter" id="ch9">
+  <div class="chapter-number">第八章</div>
+  <h2 class="chapter-title">常见问题</h2>
+
+  <div class="qa-item">
+    <div class="qa-q">会改动 Claude Code 吗？</div>
+    <div class="qa-a">不会。它只是在外面"套了一层"再启动 Claude Code，不碰 Claude Code 的任何文件。</div>
+  </div>
+  <div class="qa-item">
+    <div class="qa-q">每次启动会不会很慢？</div>
+    <div class="qa-a">通常只多 1～3 秒，主要花在两次出口查询上。</div>
+  </div>
+  <div class="qa-item">
+    <div class="qa-q">MCP、插件等功能还能用吗？</div>
+    <div class="qa-a">需要联网的会经由同一个代理端口出去；需要连接本机其他端口的，按第六章加入白名单即可。</div>
+  </div>
+  <div class="qa-item">
+    <div class="qa-q">运行过程中出口变了，它能发现吗？</div>
+    <div class="qa-a">不能。检查只在启动时做，所以第三关（你的代理工具不自动切换）很重要。</div>
+  </div>
+  <div class="qa-item">
+    <div class="qa-q">和 Anthropic 官方有关系吗？</div>
+    <div class="qa-a">没有。这是独立的开源项目，与 Anthropic 无隶属或背书关系。</div>
+  </div>
+</div>
+
+<!-- 九 -->
+<div class="chapter" id="ch9">
+  <div class="chapter-number">第九章</div>
+  <h2 class="chapter-title">它做不到的事与免责声明</h2>
+  <div class="prose">
+    <p>这个工具只管"本机上的 Claude Code 怎么上网"，以下事情它管不了：</p>
+    <ul>
+      <li>不能保证账号不会触发平台风控，也不能改变平台已有的记录；</li>
+      <li>不能把会变动、多人共用的出口变成稳定独享的出口；</li>
+      <li>管不到浏览器、桌面版 Claude、IDE 插件等其他入口；</li>
+      <li>防不住电脑上已经存在的恶意程序；</li>
+      <li>如果将来 macOS 移除了 <code>sandbox-exec</code>，隔离功能将无法使用。</li>
+    </ul>
+  </div>
+  <div class="callout">
+    <div class="callout-label">免责声明</div>
+    本项目按"原样"提供，不附带任何担保。请自行确保所使用的网络环境、代理工具及使用方式符合 Anthropic 服务条款、所在地法律法规以及所在组织的规定。因使用本项目产生的任何后果由使用者自行承担。
+  </div>
+</div>
+
+<div class="page-footer">
+  <p>Claude Network Lock -- 使用手册（简明版）v1.1</p>
+  <p>本文档以 MIT 许可证发布，与 Anthropic, PBC 无隶属或背书关系。</p>
+</div>
+
+</div><!-- .document -->
+</body>
+</html>

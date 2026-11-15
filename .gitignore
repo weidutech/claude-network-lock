@@ -1,0 +1,8 @@
+.DS_Store
+config
+config.backup-*
+*.local.yaml
+*.local.yml
+*.local.js
+*.env
+*.log
