@@ -755,6 +755,8 @@ tbody tr:last-child td {
 .prose li { margin: 0.35em 0; line-height: 1.8; }
 .toc-text a { color: inherit; text-decoration: none; }
 .toc-text a:hover { text-decoration: underline; }
+.cover-repo { margin-top: 18px; font-family: var(--mono-font, monospace); font-size: 13px; letter-spacing: 0.5px; color: #c4704b; }
+.repo-line a, .page-footer a { color: #c4704b; text-decoration: none; border-bottom: 1px solid rgba(196,112,75,0.35); }
 </style>
 </head>
 
@@ -801,6 +803,7 @@ tbody tr:last-child td {
       <div class="version-line">v1.1&emsp;|&emsp;2026 年 11 月</div>
       <div>让 Claude Code 每次都从同一个网络出口上网</div>
       <div>适用平台：macOS&emsp;|&emsp;许可证：MIT</div>
+      <div class="cover-repo">github.com/weidutech/claude-network-lock</div>
     </div>
   </div>
 </div>
@@ -826,6 +829,7 @@ tbody tr:last-child td {
     <p>
       Claude Network Lock 就是配合这个思路的工具：它像一个"门卫"，每次启动前先确认网络出口和上次一样，才放 Claude Code 通行；启动之后，也只允许它走你指定的那一条路上网。出口一旦不对，它宁可不启动，也不会让 Claude Code 换条路偷偷连网。
     </p>
+    <p class="repo-line">开源地址：<a href="https://github.com/weidutech/claude-network-lock">https://github.com/weidutech/claude-network-lock</a></p>
   </div>
 </div>
 
@@ -1170,6 +1174,7 @@ claude-locked --lock-self-test</code></pre>
 
 <div class="page-footer">
   <p>Claude Network Lock -- 使用手册（简明版）v1.1</p>
+  <p>项目地址：<a href="https://github.com/weidutech/claude-network-lock">https://github.com/weidutech/claude-network-lock</a></p>
   <p>本文档以 MIT 许可证发布，与 Anthropic, PBC 无隶属或背书关系。</p>
 </div>
 

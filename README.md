@@ -1,7 +1,7 @@
 # Claude Network Lock
 
 <p align="center">
-  <img src="docs/images/cover.png" alt="Claude Network Lock 使用手册封面" width="100%">
+  <img src="docs/images/banner.png" alt="Claude 防封指南：网络安全视角" width="100%">
 </p>
 
 <p align="center">
