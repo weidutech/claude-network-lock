@@ -1,8 +1,40 @@
 # Claude Network Lock
 
+<p align="center">
+  <img src="docs/images/cover.png" alt="Claude Network Lock 使用手册封面" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://weidutech.github.io/claude-network-lock/"><b>📖 在线阅读图文手册</b></a>
+  &nbsp;·&nbsp;
+  <a href="docs/manual-zh.pdf"><b>📄 下载 PDF 版</b></a>
+  &nbsp;·&nbsp;
+  <a href="#快速开始"><b>⚡ 快速开始</b></a>
+</p>
+
 一个面向 macOS 的 Claude Code 网络出口锁。它不修改 Claude Code，也不保证账号不会触发平台风控；它解决的是更具体的问题：**只有在本地固定代理端口可用、出口 IP 与预期一致时才启动 Claude Code，并阻止该进程树绕过这个端口直连网络。**
 
 > 本项目与 Anthropic 无隶属或背书关系。请遵守服务条款、所在地法律以及所在组织的安全规范。
+
+## 📖 图文手册
+
+我们为普通用户准备了一份排版精致、通俗易懂的中文手册，从"为什么需要"讲到"清理旧环境、安装、日常使用、排错"，不需要任何网络或安全背景也能看懂。
+
+- **在线阅读**：<https://weidutech.github.io/claude-network-lock/>
+- **PDF 版**：[docs/manual-zh.pdf](docs/manual-zh.pdf)（GitHub 可直接预览）
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/images/preview-why.png" alt="为什么需要这个工具"></td>
+    <td width="33%"><img src="docs/images/preview-arch.png" alt="三道关工作原理"></td>
+    <td width="33%"><img src="docs/images/preview-clean.png" alt="首次使用前清理旧的本机痕迹"></td>
+  </tr>
+  <tr>
+    <td align="center">为什么过了 KYC 还会被封</td>
+    <td align="center">三道关：它是怎么工作的</td>
+    <td align="center">首次使用前：清理旧的本机痕迹</td>
+  </tr>
+</table>
 
 ## 它做什么
 
@@ -20,9 +52,7 @@ Claude Code
 2. 指定的本地代理端口正在监听；
 3. 两个公网 IP 查询服务返回相同结果；
 4. 出口 IP 的 SHA-256 与安装时记录的指纹一致；
-5. Seatbelt 能放行指定代理端口，并阻止公网直连、`open` 和 `osascript`。
-
-任何一项失败都会拒绝启动（fail-closed）。
+任何一项失败都会拒绝启动（fail-closed）。通过后，Claude Code 在 Seatbelt 沙盒中运行：只能连接指定代理端口，无法直连公网，也无法调用 `open` 和 `osascript`。运行 `claude-locked --lock-self-test` 可实际测试这些限制是否生效。
 
 ## 系统要求
 
